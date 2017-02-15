@@ -2,6 +2,7 @@ package com.guatec.kdd
 
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
 
 val nonRoots = mutableListOf<String>()
 val extensions = mutableMapOf<Class<*>, MutableList<Method>>()
@@ -11,27 +12,32 @@ fun main(args: Array<String>) {
 
     val directiveClassNames = results.getNamesOfClassesWithMethodAnnotation("com.beust.kobalt.api.annotation.Directive")
     val directiveClasses = results.classNamesToClassRefs(directiveClassNames)
+    directiveClasses.forEach(::println)
     val directiveMethodsByClass = directiveClasses.flatMap{
                 it.methods.filter{it.isAnnotationPresent(com.beust.kobalt.api.annotation.Directive::class.java)}
             }
             .groupBy { it.declaringClass }
 
+
+    fun findExtensions(directiveClass: Class<*>, method: Method) {
+        println("\t${method.name}: ${method.returnType.canonicalName} ${method}")
+        nonRoots.add(method.returnType.canonicalName)
+        if (method.parameterTypes.isNotEmpty() &&
+                !method.parameterTypes[0].isArray &&
+                method.parameterTypes.lastOrNull()?.canonicalName?.startsWith("kotlin.jvm.functions.Function") ?: false) {
+
+            //it's an extension function
+            nonRoots.add(directiveClass.canonicalName)
+            val typeExtended = method.parameters.lastOrNull()?.parameterizedType as ParameterizedType
+            println("\t\t[extends ${method.parameterTypes[0].name}] ${typeExtended.actualTypeArguments[0]}")
+            extensions.getOrPut(method.parameterTypes[0], {mutableListOf<Method>()}).add(method)
+        }
+    }
+
     directiveClasses.forEach { directiveClass ->
         println(directiveClass.canonicalName)
-        directiveMethodsByClass[directiveClass]?.forEach { method ->
-                            println("\t${method.name}: ${method.returnType.canonicalName} ${method}")
-                            nonRoots.add(method.returnType.canonicalName)
-                            if (method.parameterTypes.isNotEmpty() &&
-                                !method.parameterTypes[0].isArray &&
-                                method.parameterTypes.lastOrNull()?.canonicalName?.startsWith("kotlin.jvm.functions.Function") ?: false) {
-
-                                //it's an extension function
-                                nonRoots.add(directiveClass.canonicalName)
-                                println("\t\t[extends ${method.parameterTypes[0].name}] ${method.parameters.lastOrNull()?.parameterizedType}")
-                                extensions.getOrPut(method.parameterTypes[0], {mutableListOf<Method>()}).add(method)
-                            }
-                        }
-            }
+        directiveMethodsByClass[directiveClass]?.forEach { findExtensions(directiveClass, it) }
+    }
 
     println("\n-----\n")
     val root = Class.forName("com.beust.kobalt.DirectivesKt")
