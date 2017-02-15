@@ -2,4 +2,4 @@
 .kobalt
 *.iml
 kobaltBuild/
-lib
+lib/*sources*
