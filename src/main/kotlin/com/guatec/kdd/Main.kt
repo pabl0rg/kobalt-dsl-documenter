@@ -58,13 +58,13 @@ fun main(args: Array<String>) {
 
         //printLn(level, clazz.canonicalName)
         directives?.forEach { method ->
-            val paramNames = method.parameters.filterNot { it.type.canonicalName == "kotlin.jvm.functions.Function1" }
+            val paramNames = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") }
                                               .map{it.type.canonicalName}
             printLn(level, "- ${method.name}${formatParams(paramNames)}: ${method.returnType.name}")
             printDirectives(method.returnType, level + 1)
         }
         exts?.forEach { method ->
-            val paramNames = method.parameters.filterNot { it.type.canonicalName == "kotlin.jvm.functions.Function1" || it.type.canonicalName == clazz.canonicalName }
+            val paramNames = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") || it.type.canonicalName == clazz.canonicalName }
                                               .map{it.type.canonicalName}
             printLn(level, "+ ${method.name}${formatParams(paramNames)}: ${method.returnType.name}")
             printDirectives(method.returnType, level + 1)
