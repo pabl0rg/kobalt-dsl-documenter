@@ -1,4 +1,4 @@
-package com.guatec
+package com.guatec.kdd
 
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import java.lang.reflect.Method

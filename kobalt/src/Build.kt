@@ -10,9 +10,9 @@ val bs = buildScript {
 
 val p = project {
 
-    name = "dsl-doc"
-    group = "com.example"
-    artifactId = name
+    name = "kobalt-dsl-doc"
+    group = "com.guatec.kdd"
+    artifactId = "kobalt-dsl-doc"
     version = "0.1"
 
     sourceDirectories {
@@ -27,7 +27,7 @@ val p = project {
         compile("org.jetbrains.kotlin:kotlin-reflect:jar:1.1.0-beta-22",
                 "io.github.lukehutch:fast-classpath-scanner:",
                 "org.yaml:snakeyaml:jar:1.17",
-                file("/Users/juanliska/Documents/startrack/code/kobalt/kobaltBuild/libs/kobalt-0.931.jar"))
+                file("lib/kobalt-plugin-api-0.931.jar"))
     }
 
     dependenciesTest {
@@ -42,8 +42,6 @@ val p = project {
     }
 
     application {
-        mainClass = "com.guatec.MainKt"
+        mainClass = "com.guatec.kdd.MainKt"
     }
-
-
 }
