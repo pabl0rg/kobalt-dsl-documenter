@@ -38,6 +38,9 @@ val p = project {
     assemble {
         jar {
             fatJar=true
+            manifest {
+                attributes("Main-Class", "com.guatec.kdd.MainKt")
+            }
         }
     }
 
