@@ -23,7 +23,7 @@ fun main(args: Array<String>) {
                             nonRoots.add(method.returnType.canonicalName)
                             if (method.parameterTypes.isNotEmpty() &&
                                 !method.parameterTypes[0].isArray &&
-                                method.parameterTypes.lastOrNull()?.canonicalName == "kotlin.jvm.functions.Function1") {
+                                method.parameterTypes.lastOrNull()?.canonicalName?.startsWith("kotlin.jvm.functions.Function") ?: false) {
 
                                 //it's an extension function
                                 nonRoots.add(directiveClass.canonicalName)
@@ -35,17 +35,7 @@ fun main(args: Array<String>) {
 
     println("\n-----\n")
     val root = Class.forName("com.beust.kobalt.DirectivesKt")
-    directiveMethodsByClass[root]?.forEach { method ->
-        println(method.name)
-        directiveMethodsByClass[method.returnType]?.forEach{
-            println("\t${it.name}")
-        }
-        extensions[method.returnType]?.forEach{
-            println("\t${it.name}")
-        }
-    }
 
-    println("\n-----\n")
     fun printLn(level: Int, text: String) {
         for (i in 1..level) print("\t")
         println(text)
