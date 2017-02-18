@@ -1,80 +1,95 @@
 package com.guatec.kdd
 
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
-import java.lang.reflect.Method
-import java.lang.reflect.ParameterizedType
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaGetter
+import kotlin.reflect.jvm.javaMethod
 
-val nonRoots = mutableListOf<String>()
-val extensions = mutableMapOf<Class<*>, MutableList<Method>>()
+val directivesByClass = mutableMapOf<String, MutableSet<Directive>>()
 
 fun main(args: Array<String>) {
     val results = FastClasspathScanner().enableMethodAnnotationIndexing().scan()
-
     val directiveClassNames = results.getNamesOfClassesWithMethodAnnotation("com.beust.kobalt.api.annotation.Directive")
     val directiveClasses = results.classNamesToClassRefs(directiveClassNames)
-    directiveClasses.forEach(::println)
-    val directiveMethodsByClass = directiveClasses.flatMap{
-                it.methods.filter{it.isAnnotationPresent(com.beust.kobalt.api.annotation.Directive::class.java)}
+
+    val otherClasses = mutableSetOf<String>()
+
+    fun getDirectives(className: String) = directivesByClass.getOrPut(className, { mutableSetOf<Directive>() })
+
+    fun Class<*>.mightHaveDirectives(): Boolean {
+        return !this.canonicalName.startsWith("java.") && !this.equals(Void.TYPE)
+    }
+
+    directiveClasses.forEach { clazz ->
+        clazz.methods.forEach { method ->
+            if (method.isDirective()) {
+                println("\n" + method.toString() + ": " + method.getTargetClassName())
+                getDirectives(method.getTargetClassName()).add(method.toDirective()!!)
+
+                if (method.returnType.mightHaveDirectives()) {
+                    println("should also look for directives in ${method.returnType.canonicalName}")
+                    otherClasses.add(method.returnType.canonicalName)
+                }
             }
-            .groupBy { it.declaringClass }
-
-
-    fun findExtensions(directiveClass: Class<*>, method: Method) {
-        println("\t${method.name}: ${method.returnType.canonicalName} ${method}")
-        nonRoots.add(method.returnType.canonicalName)
-        if (method.parameterTypes.isNotEmpty() &&
-                !method.parameterTypes[0].isArray &&
-                method.parameterTypes.lastOrNull()?.canonicalName?.startsWith("kotlin.jvm.functions.Function") ?: false) {
-
-            //it's an extension function
-            nonRoots.add(directiveClass.canonicalName)
-            val typeExtended = method.parameters.lastOrNull()?.parameterizedType as ParameterizedType
-            println("\t\t[extends ${method.parameterTypes[0].name}] ${typeExtended.actualTypeArguments[0]}")
-            extensions.getOrPut(method.parameterTypes[0], {mutableListOf<Method>()}).add(method)
+            else if (method.name.startsWith("set")) {
+                println("\nprop: ${clazz.canonicalName} ${method.name.drop(3).decapitalize()}")
+                getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, method, method.name.drop(3).decapitalize()))
+            }
         }
     }
 
-    directiveClasses.forEach { directiveClass ->
-        println(directiveClass.canonicalName)
-        directiveMethodsByClass[directiveClass]?.forEach { findExtensions(directiveClass, it) }
+    otherClasses.forEach(::println)
+    otherClasses.forEach { clazzName ->
+        try {
+            val clazz = Class.forName(clazzName)
+            clazz.methods.forEach { method ->
+                if (method.isDirective()) {
+                    println("\n" + method.toString() + ": " + method.getTargetClassName())
+                    getDirectives(method.getTargetClassName()).add(method.toDirective()!!)
+
+                    if (method.returnType.mightHaveDirectives()) {
+                        println("should also look for directives in ${method.returnType.canonicalName}")
+                        otherClasses.add(method.returnType.canonicalName)
+                    }
+                }
+                else if (method.name.startsWith("set")) {
+                    println("\nprop: ${clazz.canonicalName} ${method.name.drop(3).decapitalize()}")
+                    getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, method, method.name.drop(3).decapitalize()))
+                }
+            }
+        }
+        catch (ex: Exception) { println (ex.message)}
     }
 
+    println(directivesByClass)
+
     println("\n-----\n")
-    val root = Class.forName("com.beust.kobalt.DirectivesKt")
 
     fun printLn(level: Int, text: String) {
         for (i in 1..level) print("\t")
         println(text)
     }
 
-    fun formatParams(paramNames: List<String>) =
-        if (!paramNames.isEmpty()) {
-            " (${paramNames.joinToString(",")})"
-        }
-        else {
-            ""
+    val deDupe = mutableSetOf<String>()
+
+    fun printDirectives(className: String, level: Int) {
+        if (deDupe.contains(className)) {
+            return
+        } else {
+            deDupe.add(className)
         }
 
-    fun printDirectives(clazz: Class<*>, level: Int) {
-        val directives = directiveMethodsByClass[clazz]?.sortedBy { it.name }
-        val exts = extensions[clazz]?.sortedBy{ it.name }
+        val directives = directivesByClass[className]?.sortedBy { it.name }
 
-        if (level > 5 || (directives?.isEmpty() ?: true && exts?.isEmpty() ?: true))
+        if (level > 6 || directives?.isEmpty() ?: true )
             return
 
-        //printLn(level, clazz.canonicalName)
-        directives?.forEach { method ->
-            val paramNames = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") }
-                                              .map{it.type.canonicalName}
-            printLn(level, "- ${method.name}${formatParams(paramNames)}: ${method.returnType.name}")
-            printDirectives(method.returnType, level + 1)
-        }
-        exts?.forEach { method ->
-            val paramNames = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") || it.type.canonicalName == clazz.canonicalName }
-                                              .map{it.type.canonicalName}
-            printLn(level, "+ ${method.name}${formatParams(paramNames)}: ${method.returnType.name}")
-            printDirectives(method.returnType, level + 1)
+        //printLn(level, className)
+        directives?.forEach { directive ->
+            printLn(level, directive.toString())
+            if (directive.returnType.mightHaveDirectives())
+                printDirectives(directive.returnType.canonicalName, level + 1)
         }
     }
-    printDirectives(root, 0)
+    printDirectives("com.beust.kobalt.DirectivesKt", 0)
 }
