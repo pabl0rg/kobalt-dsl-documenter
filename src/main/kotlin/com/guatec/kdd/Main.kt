@@ -3,7 +3,6 @@ package com.guatec.kdd
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.javaGetter
-import kotlin.reflect.jvm.javaMethod
 
 val directivesByClass = mutableMapOf<String, MutableSet<Directive>>()
 
@@ -12,7 +11,7 @@ fun main(args: Array<String>) {
     val directiveClassNames = results.getNamesOfClassesWithMethodAnnotation("com.beust.kobalt.api.annotation.Directive")
     val directiveClasses = results.classNamesToClassRefs(directiveClassNames)
 
-    val otherClasses = mutableSetOf<String>()
+    val otherClasses = mutableSetOf<Class<*>>()
 
     fun getDirectives(className: String) = directivesByClass.getOrPut(className, { mutableSetOf<Directive>() })
 
@@ -20,46 +19,36 @@ fun main(args: Array<String>) {
         return !this.canonicalName.startsWith("java.") && !this.equals(Void.TYPE)
     }
 
-    directiveClasses.forEach { clazz ->
+    fun findDirectives(clazz: Class<*>) {
+        println("\n$clazz")
+        try {
+            clazz.kotlin.memberProperties.forEach { prop ->
+                if (prop.annotations.isNotEmpty()) {
+                    prop.annotations.forEach { println(it.annotationClass.simpleName) }
+                    val getter = prop.javaGetter!!
+                    getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, getter, prop.name))
+                }
+            }
+        }
+        catch (ex: Exception) {
+            System.err.println("failed to get props of ${clazz}")
+            ex.printStackTrace()
+        }
         clazz.methods.forEach { method ->
             if (method.isDirective()) {
-                println("\n" + method.toString() + ": " + method.getTargetClassName())
+                println(method.toString() + ": " + method.getTargetClassName())
                 getDirectives(method.getTargetClassName()).add(method.toDirective()!!)
 
-                if (method.returnType.mightHaveDirectives()) {
+                if (method.returnType.mightHaveDirectives() && !directiveClasses.contains(method.returnType)) {
                     println("should also look for directives in ${method.returnType.canonicalName}")
-                    otherClasses.add(method.returnType.canonicalName)
+                    otherClasses.add(method.returnType)
                 }
-            }
-            else if (method.name.startsWith("set")) {
-                println("\nprop: ${clazz.canonicalName} ${method.name.drop(3).decapitalize()}")
-                getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, method, method.name.drop(3).decapitalize()))
             }
         }
     }
 
-    otherClasses.forEach(::println)
-    otherClasses.forEach { clazzName ->
-        try {
-            val clazz = Class.forName(clazzName)
-            clazz.methods.forEach { method ->
-                if (method.isDirective()) {
-                    println("\n" + method.toString() + ": " + method.getTargetClassName())
-                    getDirectives(method.getTargetClassName()).add(method.toDirective()!!)
-
-                    if (method.returnType.mightHaveDirectives()) {
-                        println("should also look for directives in ${method.returnType.canonicalName}")
-                        otherClasses.add(method.returnType.canonicalName)
-                    }
-                }
-                else if (method.name.startsWith("set")) {
-                    println("\nprop: ${clazz.canonicalName} ${method.name.drop(3).decapitalize()}")
-                    getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, method, method.name.drop(3).decapitalize()))
-                }
-            }
-        }
-        catch (ex: Exception) { println (ex.message)}
-    }
+    directiveClasses.forEach(::findDirectives)
+    otherClasses.forEach(::findDirectives)
 
     println(directivesByClass)
 

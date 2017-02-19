@@ -2,17 +2,9 @@ package com.guatec.kdd
 
 import java.lang.reflect.Method
 
-class Directive(val name: String, val description: String, val returnType: Class<*>) {
+data class Directive(val name: String, val description: String, val returnType: Class<*>) {
     override fun toString(): String {
         return description
-    }
-
-    override fun hashCode(): Int {
-        return description.hashCode()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        return this.hashCode() == other?.hashCode()
     }
 
     companion object {
@@ -23,16 +15,16 @@ class Directive(val name: String, val description: String, val returnType: Class
                 false -> "-"
             }
             fun getTypeInfo(): String {
-                val paramTypes = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") }
+                val paramNames = method.parameters.filterNot { it.type.canonicalName.startsWith("kotlin.jvm.functions.Function") }
                         .map { it.type.canonicalName }
                 if (type.isProp()) {
-                    return ": ${method.parameterTypes[0].canonicalName}"
+                    return ": ${method.returnType.canonicalName}"
                 }
-                else if (paramTypes.isEmpty()) {
+                else if (paramNames.isEmpty()) {
                     return ": ${method.returnType.canonicalName}"
                 }
                 else {
-                    return " (${paramTypes.joinToString(",")}): ${method.returnType.canonicalName}"
+                    return " (${paramNames.joinToString(",")}): ${method.returnType.canonicalName}"
                 }
             }
             return Directive(getName(), getSymbol() + " " + getName() + getTypeInfo(), method.returnType)
