@@ -1,6 +1,7 @@
 package com.guatec.kdd
 
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
+import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.javaGetter
 
@@ -23,7 +24,9 @@ fun main(args: Array<String>) {
         println("\n$clazz")
         try {
             clazz.kotlin.memberProperties.forEach { prop ->
-                if (prop.annotations.isNotEmpty()) {
+                val isVar = prop is KMutableProperty<*>
+                println(prop.toString() + " isVar: $isVar")
+                if (prop.annotations.isNotEmpty() || isVar) {
                     prop.annotations.forEach { println(it.annotationClass.simpleName) }
                     val getter = prop.javaGetter!!
                     getDirectives(clazz.canonicalName).add(Directive.build(DirectiveType.OTHER_PROP, getter, prop.name))
