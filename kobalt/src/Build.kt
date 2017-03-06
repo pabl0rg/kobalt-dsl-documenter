@@ -6,10 +6,6 @@ import java.io.File
 
 val kobaltVersionToDocument="1.0.3"
 
-val bs = buildScript {
-    repos()
-}
-
 val p = project {
 
     name = "kobalt-dsl-doc"
