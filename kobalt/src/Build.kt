@@ -1,17 +1,19 @@
 import com.beust.kobalt.*
 import com.beust.kobalt.plugin.packaging.*
 import com.beust.kobalt.plugin.application.*
-import com.beust.kobalt.plugin.kotlin.*
-import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 val kobaltVersionToDocument="1.0.3"
+
+fun getVersion() = DateTimeFormatter.ofPattern("ymd").format(LocalDateTime.now())
 
 val p = project {
 
     name = "kobalt-dsl-doc"
     group = "com.guatec.kdd"
     artifactId = "kobalt-dsl-doc"
-    version = "0.1"
+    version = getVersion()
 
     sourceDirectories {
         path("src/main/kotlin")
