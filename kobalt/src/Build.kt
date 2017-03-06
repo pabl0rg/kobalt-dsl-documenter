@@ -2,11 +2,13 @@ import com.beust.kobalt.*
 import com.beust.kobalt.plugin.packaging.*
 import com.beust.kobalt.plugin.application.*
 import com.beust.kobalt.plugin.kotlin.*
+import java.io.File
+
+val kobaltVersionToDocument="1.0.3"
 
 val bs = buildScript {
     repos()
 }
-
 
 val p = project {
 
@@ -24,10 +26,9 @@ val p = project {
     }
 
     dependencies {
-        compile("org.jetbrains.kotlin:kotlin-reflect:jar:1.1.0-beta-22",
+        compile("org.jetbrains.kotlin:kotlin-reflect:jar:1.1.0",
                 "io.github.lukehutch:fast-classpath-scanner:",
-                "org.yaml:snakeyaml:jar:1.17",
-                file("lib/kobalt-plugin-api-0.931.jar"))
+                file(System.getProperty("user.home") + "/.kobalt/wrapper/dist/kobalt-$kobaltVersionToDocument/kobalt/wrapper/kobalt-$kobaltVersionToDocument.jar"))
     }
 
     dependenciesTest {
